@@ -1,15 +1,43 @@
-import { GoogleGenAI, Chat, GenerateContentResponse } from "@google/genai";
+import { GoogleGenAI, Chat, GenerateContentResponse, Content, Part } from "@google/genai";
 import { ChatMessage, Role, Attachment } from "../types";
 
 // Initialize the Gemini Client
-// CRITICAL: Ensure process.env.API_KEY is available in your deployment environment (e.g., Vercel Environment Variables)
+// CRITICAL: Ensure process.env.API_KEY is available in your deployment environment
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
 
-export const createChatSession = (modelName: string = 'gemini-2.5-flash') => {
+export const createChatSession = (modelName: string = 'gemini-2.5-flash', historyMessages: ChatMessage[] = []) => {
+  // Convert internal ChatMessage[] to Gemini Content[]
+  const history: Content[] = historyMessages.map(msg => {
+    const parts: Part[] = [];
+    
+    // Add attachments if any
+    if (msg.attachments && msg.attachments.length > 0) {
+      msg.attachments.forEach(att => {
+        parts.push({
+          inlineData: {
+            data: att.data,
+            mimeType: att.mimeType
+          }
+        });
+      });
+    }
+    
+    // Add text
+    if (msg.text) {
+      parts.push({ text: msg.text });
+    }
+
+    return {
+      role: msg.role === Role.USER ? 'user' : 'model',
+      parts: parts
+    };
+  });
+
   return ai.chats.create({
     model: modelName,
+    history: history,
     config: {
-      systemInstruction: "You are AkinAI, a helpful, witty, and advanced AI assistant created by Akin S. Sokpah from Liberia. You are polite, knowledgeable, and strive to provide accurate information.",
+      systemInstruction: "You are AkinAI, a helpful, witty, and advanced AI assistant created by Akin S. Sokpah from Liberia. You are polite, knowledgeable, and strive to provide accurate information. Use Markdown for formatting.",
     },
   });
 };
@@ -23,14 +51,7 @@ export const sendMessageToGemini = async (
     let responseStream;
 
     if (attachments.length > 0) {
-      // If there are images, we need to use a slightly different approach or just pass parts
-      // The SDK's chat.sendMessageStream supports passing a string message.
-      // For multimodal history in chat, we often need to construct the history manually or use the helper.
-      // However, for simplicity in this demo, if there are attachments, we might treat it as a single generation
-      // or try to pass parts if the method signature allows.
-      // The current SDK Chat.sendMessage supports `string | (string | Part)[]`.
-      
-      const parts: any[] = [];
+      const parts: any[] = []; // Using any to bypass strict type check for demo flexibility
       
       attachments.forEach(att => {
         parts.push({
@@ -41,14 +62,11 @@ export const sendMessageToGemini = async (
         });
       });
       
-      parts.push({ text: text });
-
-      // Note: In strict TypeScript SDK, sendMessageStream argument is typed as { message: ... }
-      // The `message` property can handle complex content in some versions, but to be safe and strictly follow 
-      // the "Chat (Streaming)" guidelines which say "only accepts the message parameter", we pass the string or parts.
-      // However, the types provided in the guideline for `sendMessageStream` input is `{ message: string | Array<string | Part> }`.
+      if (text) {
+        parts.push({ text: text });
+      }
       
-      responseStream = await chat.sendMessageStream({ message: parts as any }); 
+      responseStream = await chat.sendMessageStream({ message: parts }); 
     } else {
       responseStream = await chat.sendMessageStream({ message: text });
     }

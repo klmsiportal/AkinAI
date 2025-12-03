@@ -12,12 +12,14 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   
   // Ref to hold the actual API Chat object. 
-  // We don't store this in state because it's not serializable/renderable.
   const chatInstanceRef = React.useRef<Chat | null>(null);
 
   // Initialize first chat
   useEffect(() => {
-    createNewChat();
+    // Only create if empty
+    if (sessions.length === 0) {
+      createNewChat();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -33,8 +35,19 @@ function App() {
     setCurrentSessionId(newSession.id);
     setSidebarOpen(false);
     
-    // Initialize Gemini Chat Instance
+    // Initialize Gemini Chat Instance with empty history
     chatInstanceRef.current = createChatSession();
+  };
+
+  const handleSelectSession = (id: string) => {
+    if (id === currentSessionId) return;
+    
+    setCurrentSessionId(id);
+    const session = sessions.find(s => s.id === id);
+    if (session) {
+      // Re-initialize Chat object with history
+      chatInstanceRef.current = createChatSession('gemini-2.5-flash', session.messages);
+    }
   };
 
   const handleSendMessage = useCallback(async (text: string, attachments: Attachment[]) => {
@@ -129,18 +142,11 @@ function App() {
   const currentSession = sessions.find(s => s.id === currentSessionId);
 
   return (
-    <div className="flex h-screen w-full bg-black overflow-hidden">
+    <div className="flex h-screen w-full bg-gray-950 overflow-hidden text-white font-sans selection:bg-primary-500/30">
       <Sidebar 
         sessions={sessions}
         currentSessionId={currentSessionId}
-        onSelectSession={(id) => {
-            setCurrentSessionId(id);
-            // In a real app, you'd restore the Chat object history here
-            chatInstanceRef.current = createChatSession(); 
-            // NOTE: A simple chat instance reset loses context of previous messages in the API "memory"
-            // for this session. A robust app handles history reconstruction.
-            // For this UI-focused demo, we reset the connection for the new UI session.
-        }}
+        onSelectSession={handleSelectSession}
         onNewChat={createNewChat}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
