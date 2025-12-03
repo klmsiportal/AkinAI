@@ -10,13 +10,13 @@ function App() {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedModel, setSelectedModel] = useState<string>('gemini-2.5-flash');
   
   // Ref to hold the actual API Chat object. 
   const chatInstanceRef = React.useRef<Chat | null>(null);
 
-  // Initialize first chat
+  // Initialize first chat on load
   useEffect(() => {
-    // Only create if empty
     if (sessions.length === 0) {
       createNewChat();
     }
@@ -35,8 +35,8 @@ function App() {
     setCurrentSessionId(newSession.id);
     setSidebarOpen(false);
     
-    // Initialize Gemini Chat Instance with empty history
-    chatInstanceRef.current = createChatSession();
+    // Initialize Gemini Chat Instance with empty history and current model
+    chatInstanceRef.current = createChatSession(selectedModel);
   };
 
   const handleSelectSession = (id: string) => {
@@ -46,12 +46,30 @@ function App() {
     const session = sessions.find(s => s.id === id);
     if (session) {
       // Re-initialize Chat object with history
-      chatInstanceRef.current = createChatSession('gemini-2.5-flash', session.messages);
+      chatInstanceRef.current = createChatSession(selectedModel, session.messages);
+      setSidebarOpen(false); // Close sidebar on mobile on selection
+    }
+  };
+
+  const handleModelChange = (model: string) => {
+    setSelectedModel(model);
+    // If we are in a chat, we need to re-initialize the chat instance with the new model
+    if (currentSessionId) {
+      const session = sessions.find(s => s.id === currentSessionId);
+      if (session) {
+        chatInstanceRef.current = createChatSession(model, session.messages);
+      }
     }
   };
 
   const handleSendMessage = useCallback(async (text: string, attachments: Attachment[]) => {
-    if (!currentSessionId || !chatInstanceRef.current) return;
+    if (!currentSessionId) return;
+
+    // Ensure chat instance exists
+    if (!chatInstanceRef.current) {
+        const session = sessions.find(s => s.id === currentSessionId);
+        chatInstanceRef.current = createChatSession(selectedModel, session?.messages || []);
+    }
 
     // 1. Add User Message to State
     const userMsg: ChatMessage = {
@@ -65,7 +83,7 @@ function App() {
     setSessions(prev => prev.map(session => {
       if (session.id === currentSessionId) {
         // Update Title if it's the first message
-        const newTitle = session.messages.length === 0 ? (text.slice(0, 30) || "Image Chat") : session.title;
+        const newTitle = session.messages.length === 0 ? (text.slice(0, 30) + (text.length > 30 ? '...' : '') || "Image Chat") : session.title;
         return {
           ...session,
           title: newTitle,
@@ -120,13 +138,23 @@ function App() {
         }));
       }
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error sending message:", error);
+      let errorMessage = "Sorry, I encountered an error processing your request. Please try again.";
+      
+      // Improve error messaging for common issues
+      if (error.message && (error.message.includes('API key') || error.message.includes('API_KEY'))) {
+        errorMessage = "⚠️ **Configuration Error**: API Key is missing or invalid. Please check your Vercel environment variables.";
+      } else if (error.message) {
+         // Clean up error message
+         errorMessage = `⚠️ **Error**: ${error.message}`;
+      }
+
       setSessions(prev => prev.map(session => {
         if (session.id === currentSessionId) {
           const updatedMessages = session.messages.map(msg => {
             if (msg.id === aiMsgId) {
-              return { ...msg, text: "Sorry, I encountered an error processing your request. Please try again.", isError: true };
+              return { ...msg, text: errorMessage, isError: true };
             }
             return msg;
           });
@@ -137,7 +165,7 @@ function App() {
     } finally {
       setIsLoading(false);
     }
-  }, [currentSessionId]);
+  }, [currentSessionId, selectedModel]);
 
   const currentSession = sessions.find(s => s.id === currentSessionId);
 
@@ -150,6 +178,8 @@ function App() {
         onNewChat={createNewChat}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
+        selectedModel={selectedModel}
+        onSelectModel={handleModelChange}
       />
       
       <ChatInterface 

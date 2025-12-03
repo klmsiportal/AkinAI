@@ -95,7 +95,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ messages, isLoading, onSe
         <div className="max-w-3xl mx-auto p-4 md:p-6 pb-32 min-h-full flex flex-col">
           
           {messages.length === 0 ? (
-            <div className="flex-1 flex flex-col items-center justify-center text-center animate-fadeIn">
+            <div className="flex-1 flex flex-col items-center justify-center text-center animate-fadeIn py-10">
               <div className="mb-8 relative group cursor-default">
                  <div className="absolute -inset-1 bg-gradient-to-r from-primary-500 to-indigo-500 rounded-full blur opacity-25 group-hover:opacity-75 transition duration-1000 group-hover:duration-200"></div>
                  <div className="relative w-20 h-20 bg-gray-900 rounded-full flex items-center justify-center border border-gray-800 shadow-2xl">
@@ -107,7 +107,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ messages, isLoading, onSe
               
               <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-br from-white to-gray-400 mb-3">Hello, I'm AkinAI</h1>
               <p className="text-gray-400 max-w-md text-lg leading-relaxed mb-10">
-                How can I help you today?
+                Powered by Gemini. How can I help you today?
               </p>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-2xl">
@@ -140,10 +140,16 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ messages, isLoading, onSe
                   {/* Avatar */}
                   <div className="flex-shrink-0 mt-1">
                     {msg.role === Role.MODEL ? (
-                       <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-primary-600 to-indigo-600 flex items-center justify-center shadow-lg border border-white/10">
-                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-white">
-                            <path fillRule="evenodd" d="M9 4.5a.75.75 0 01.721.544l.813 2.846a3.75 3.75 0 002.576 2.576l2.846.813a.75.75 0 010 1.442l-2.846.813a3.75 3.75 0 00-2.576 2.576l-.813 2.846a.75.75 0 01-1.442 0l-.813-2.846a3.75 3.75 0 00-2.576-2.576l-2.846-.813a.75.75 0 010-1.442l2.846-.813a3.75 3.75 0 002.576-2.576l.813-2.846A.75.75 0 019 4.5zM6 20.25a.75.75 0 01.75.75v.75h.75a.75.75 0 010 1.5h-.75v.75a.75.75 0 01-1.5 0v-.75h-.75a.75.75 0 010-1.5h.75v-.75a.75.75 0 01.75-.75zM17.5 8a.75.75 0 01.75-.75h.75v-.75a.75.75 0 011.5 0v.75h.75a.75.75 0 010 1.5h-.75v.75a.75.75 0 01-1.5 0v-.75h-.75a.75.75 0 01-.75-.75z" clipRule="evenodd" />
-                          </svg>
+                       <div className={`w-8 h-8 rounded-full flex items-center justify-center shadow-lg border border-white/10 ${msg.isError ? 'bg-red-900/50' : 'bg-gradient-to-tr from-primary-600 to-indigo-600'}`}>
+                          {msg.isError ? (
+                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-red-400">
+                               <path fillRule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003zM12 8.25a.75.75 0 01.75.75v3.75a.75.75 0 01-1.5 0V9a.75.75 0 01.75-.75zm0 8.25a.75.75 0 100-1.5.75.75 0 000 1.5z" clipRule="evenodd" />
+                             </svg>
+                          ) : (
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-white">
+                                <path fillRule="evenodd" d="M9 4.5a.75.75 0 01.721.544l.813 2.846a3.75 3.75 0 002.576 2.576l2.846.813a.75.75 0 010 1.442l-2.846.813a3.75 3.75 0 00-2.576 2.576l-.813 2.846a.75.75 0 01-1.442 0l-.813-2.846a3.75 3.75 0 00-2.576-2.576l-2.846-.813a.75.75 0 010-1.442l2.846-.813a3.75 3.75 0 002.576-2.576l.813-2.846A.75.75 0 019 4.5zM6 20.25a.75.75 0 01.75.75v.75h.75a.75.75 0 010 1.5h-.75v.75a.75.75 0 01-1.5 0v-.75h-.75a.75.75 0 010-1.5h.75v-.75a.75.75 0 01.75-.75zM17.5 8a.75.75 0 01.75-.75h.75v-.75a.75.75 0 011.5 0v.75h.75a.75.75 0 010 1.5h-.75v.75a.75.75 0 01-1.5 0v-.75h-.75a.75.75 0 01-.75-.75z" clipRule="evenodd" />
+                            </svg>
+                          )}
                        </div>
                     ) : (
                       <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center border border-gray-600">
@@ -163,7 +169,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ messages, isLoading, onSe
                       px-5 py-3 rounded-2xl shadow-sm text-sm leading-6 md:text-base md:leading-7
                       ${msg.role === Role.USER 
                         ? 'bg-gray-800 text-white rounded-tr-sm border border-gray-700' 
-                        : 'text-gray-200'}
+                        : msg.isError 
+                            ? 'bg-red-900/20 text-red-200 border border-red-900/50' 
+                            : 'text-gray-200'}
                     `}>
                        {msg.role === Role.USER && msg.attachments && msg.attachments.length > 0 && (
                         <div className="flex gap-2 mb-3 flex-wrap justify-end">
