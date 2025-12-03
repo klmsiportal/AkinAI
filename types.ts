@@ -10,10 +10,11 @@ export interface ChatMessage {
   timestamp: number;
   isError?: boolean;
   attachments?: Attachment[];
+  type?: 'text' | 'image_generation' | 'audio_generation'; // Type of content
 }
 
 export interface Attachment {
-  type: 'image';
+  type: 'image' | 'audio';
   data: string; // base64
   mimeType: string;
 }
@@ -23,4 +24,5 @@ export interface ChatSession {
   title: string;
   messages: ChatMessage[];
   createdAt: number;
+  model: string;
 }

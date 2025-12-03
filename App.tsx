@@ -1,8 +1,8 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import Sidebar from './components/Sidebar';
 import ChatInterface from './components/ChatInterface';
 import { ChatMessage, ChatSession, Role, Attachment } from './types';
-import { createChatSession, sendMessageToGemini } from './services/geminiService';
+import { createChatSession, sendMessageToGemini, generateImage, generateSpeech, transcribeAudio } from './services/geminiService';
 import { Chat } from '@google/genai';
 
 function App() {
@@ -11,11 +11,11 @@ function App() {
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedModel, setSelectedModel] = useState<string>('gemini-2.5-flash');
+  const [isRecording, setIsRecording] = useState(false);
   
-  // Ref to hold the actual API Chat object. 
-  const chatInstanceRef = React.useRef<Chat | null>(null);
+  const chatInstanceRef = useRef<Chat | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
 
-  // Initialize first chat on load
   useEffect(() => {
     if (sessions.length === 0) {
       createNewChat();
@@ -29,13 +29,13 @@ function App() {
       title: 'New Chat',
       messages: [],
       createdAt: Date.now(),
+      model: selectedModel
     };
     
     setSessions(prev => [newSession, ...prev]);
     setCurrentSessionId(newSession.id);
     setSidebarOpen(false);
     
-    // Initialize Gemini Chat Instance with empty history and current model
     chatInstanceRef.current = createChatSession(selectedModel);
   };
 
@@ -45,15 +45,13 @@ function App() {
     setCurrentSessionId(id);
     const session = sessions.find(s => s.id === id);
     if (session) {
-      // Re-initialize Chat object with history
-      chatInstanceRef.current = createChatSession(selectedModel, session.messages);
-      setSidebarOpen(false); // Close sidebar on mobile on selection
+      chatInstanceRef.current = createChatSession(session.model || selectedModel, session.messages);
+      setSidebarOpen(false); 
     }
   };
 
   const handleModelChange = (model: string) => {
     setSelectedModel(model);
-    // If we are in a chat, we need to re-initialize the chat instance with the new model
     if (currentSessionId) {
       const session = sessions.find(s => s.id === currentSessionId);
       if (session) {
@@ -62,16 +60,70 @@ function App() {
     }
   };
 
+  const startRecording = async () => {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const mediaRecorder = new MediaRecorder(stream);
+        mediaRecorderRef.current = mediaRecorder;
+        
+        const audioChunks: Blob[] = [];
+        
+        mediaRecorder.ondataavailable = (event) => {
+            audioChunks.push(event.data);
+        };
+        
+        mediaRecorder.onstop = async () => {
+            setIsRecording(false);
+            setIsLoading(true);
+            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' }); // Typically webm/opus
+            const reader = new FileReader();
+            reader.readAsDataURL(audioBlob);
+            reader.onloadend = async () => {
+                const base64Audio = (reader.result as string).split(',')[1];
+                try {
+                    // Send to Transcription
+                    const text = await transcribeAudio(base64Audio, 'audio/webm');
+                    if (text) {
+                        handleSendMessage(text, []);
+                    }
+                } catch (e) {
+                    console.error(e);
+                    alert("Failed to transcribe audio.");
+                    setIsLoading(false);
+                }
+            };
+        };
+        
+        mediaRecorder.start();
+        setIsRecording(true);
+        
+    } catch (err) {
+        console.error("Microphone access denied", err);
+        alert("Microphone access is required.");
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+        mediaRecorderRef.current.stop();
+    }
+  };
+
+  const handleToggleRecord = async () => {
+      if (isRecording) {
+          stopRecording();
+      } else {
+          await startRecording();
+      }
+  };
+
   const handleSendMessage = useCallback(async (text: string, attachments: Attachment[]) => {
     if (!currentSessionId) return;
-
-    // Ensure chat instance exists
     if (!chatInstanceRef.current) {
-        const session = sessions.find(s => s.id === currentSessionId);
-        chatInstanceRef.current = createChatSession(selectedModel, session?.messages || []);
+         const session = sessions.find(s => s.id === currentSessionId);
+         chatInstanceRef.current = createChatSession(selectedModel, session?.messages || []);
     }
 
-    // 1. Add User Message to State
     const userMsg: ChatMessage = {
       id: Date.now().toString(),
       role: Role.USER,
@@ -82,72 +134,107 @@ function App() {
 
     setSessions(prev => prev.map(session => {
       if (session.id === currentSessionId) {
-        // Update Title if it's the first message
-        const newTitle = session.messages.length === 0 ? (text.slice(0, 30) + (text.length > 30 ? '...' : '') || "Image Chat") : session.title;
-        return {
-          ...session,
-          title: newTitle,
-          messages: [...session.messages, userMsg]
-        };
+        const newTitle = session.messages.length === 0 ? (text.slice(0, 30) + (text.length > 30 ? '...' : '')) : session.title;
+        return { ...session, title: newTitle, messages: [...session.messages, userMsg] };
       }
       return session;
     }));
 
     setIsLoading(true);
 
-    // 2. Add Placeholder AI Message
     const aiMsgId = (Date.now() + 1).toString();
     const aiPlaceholder: ChatMessage = {
       id: aiMsgId,
       role: Role.MODEL,
-      text: '', // Start empty
+      text: '',
       timestamp: Date.now(),
+      type: 'text'
     };
 
     setSessions(prev => prev.map(session => {
       if (session.id === currentSessionId) {
-        return {
-          ...session,
-          messages: [...session.messages, aiPlaceholder]
-        };
+        return { ...session, messages: [...session.messages, aiPlaceholder] };
       }
       return session;
     }));
 
     try {
-      // 3. Stream Response
-      const stream = await sendMessageToGemini(chatInstanceRef.current, text, attachments);
-      
-      let fullText = '';
-      
-      for await (const chunk of stream) {
-        fullText += chunk;
-        
-        // Update the specific message in the specific session
-        setSessions(prev => prev.map(session => {
-          if (session.id === currentSessionId) {
-            const updatedMessages = session.messages.map(msg => {
-              if (msg.id === aiMsgId) {
-                return { ...msg, text: fullText };
-              }
-              return msg;
-            });
-            return { ...session, messages: updatedMessages };
-          }
-          return session;
+      // Feature: Check if user wants to generate an image
+      const lowerText = text.toLowerCase();
+      if (lowerText.startsWith("generate image") || lowerText.startsWith("draw") || lowerText.startsWith("create an image")) {
+         // Image Generation Flow
+         const imageBase64 = await generateImage(text);
+         
+         setSessions(prev => prev.map(session => {
+             if (session.id === currentSessionId) {
+                 const updatedMessages = session.messages.map(msg => {
+                     if (msg.id === aiMsgId) {
+                         const updatedMsg: ChatMessage = { 
+                             ...msg, 
+                             text: "Here is your image:", 
+                             type: 'image_generation',
+                             attachments: [{ type: 'image', data: imageBase64, mimeType: 'image/png' }]
+                         };
+                         return updatedMsg;
+                     }
+                     return msg;
+                 });
+                 return { ...session, messages: updatedMessages };
+             }
+             return session;
+         }));
+
+      } else if (lowerText.startsWith("speak") || lowerText.startsWith("say")) {
+          // TTS Flow
+          const speechText = text.replace(/^(speak|say)/i, "").trim();
+          const audioBase64 = await generateSpeech(speechText || "Hello");
+
+          setSessions(prev => prev.map(session => {
+            if (session.id === currentSessionId) {
+                const updatedMessages = session.messages.map(msg => {
+                    if (msg.id === aiMsgId) {
+                        const updatedMsg: ChatMessage = { 
+                            ...msg, 
+                            text: speechText, 
+                            type: 'audio_generation',
+                            attachments: [{ type: 'audio', data: audioBase64, mimeType: 'audio/mp3' }]
+                        };
+                        return updatedMsg;
+                    }
+                    return msg;
+                });
+                return { ...session, messages: updatedMessages };
+            }
+            return session;
         }));
+
+      } else {
+          // Standard Chat Flow
+          const stream = await sendMessageToGemini(chatInstanceRef.current, text, attachments);
+          let fullText = '';
+          for await (const chunk of stream) {
+            fullText += chunk;
+            setSessions(prev => prev.map(session => {
+              if (session.id === currentSessionId) {
+                const updatedMessages = session.messages.map(msg => {
+                  if (msg.id === aiMsgId) {
+                    return { ...msg, text: fullText };
+                  }
+                  return msg;
+                });
+                return { ...session, messages: updatedMessages };
+              }
+              return session;
+            }));
+          }
       }
 
     } catch (error: any) {
-      console.error("Error sending message:", error);
-      let errorMessage = "Sorry, I encountered an error processing your request. Please try again.";
+      console.error(error);
+      let errorMessage = "Sorry, something went wrong.";
       
-      // Improve error messaging for common issues
       if (error.message && (error.message.includes('API key') || error.message.includes('API_KEY'))) {
-        errorMessage = "⚠️ **Configuration Error**: API Key is missing or invalid. Please check your Vercel environment variables.";
-      } else if (error.message) {
-         // Clean up error message
-         errorMessage = `⚠️ **Error**: ${error.message}`;
+        errorMessage = "⚠️ **Action Required**: Please add your API Key to the Vercel Environment Variables (`API_KEY`).";
       }
 
       setSessions(prev => prev.map(session => {
@@ -187,6 +274,8 @@ function App() {
         isLoading={isLoading}
         onSend={handleSendMessage}
         onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+        onRecordAudio={handleToggleRecord}
+        isRecording={isRecording}
       />
     </div>
   );
