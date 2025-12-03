@@ -231,10 +231,20 @@ function App() {
 
     } catch (error: any) {
       console.error(error);
-      let errorMessage = "Sorry, something went wrong.";
+      let errorMessage = "Sorry, something went wrong. Please try again.";
       
-      if (error.message && (error.message.includes('API key') || error.message.includes('API_KEY'))) {
-        errorMessage = "⚠️ **Action Required**: Please add your API Key to the Vercel Environment Variables (`API_KEY`).";
+      if (error.message) {
+        if (error.message.includes('API key') || error.message.includes('API_KEY')) {
+             errorMessage = "⚠️ **Configuration Error**: API Key is missing. Please set `API_KEY` in Vercel.";
+        } else if (error.message.includes('429')) {
+             errorMessage = "⚠️ **Rate Limit**: Too many requests. Please wait a moment.";
+        } else if (error.message.includes('503')) {
+             errorMessage = "⚠️ **Service Unavailable**: Gemini is temporarily busy. Try again.";
+        } else if (error.message.includes('SAFETY')) {
+             errorMessage = "⚠️ **Safety Block**: The response was blocked by safety filters.";
+        } else {
+            errorMessage = `⚠️ **Error**: ${error.message}`;
+        }
       }
 
       setSessions(prev => prev.map(session => {
