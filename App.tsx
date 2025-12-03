@@ -23,6 +23,17 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const initChatInstance = (model: string, history: ChatMessage[]) => {
+    try {
+        chatInstanceRef.current = createChatSession(model, history);
+    } catch (e) {
+        // If API key is missing, this will fail. We don't crash, just log.
+        // The error will be surfaced when user tries to send a message.
+        console.warn("Could not initialize chat session:", e);
+        chatInstanceRef.current = null;
+    }
+  }
+
   const createNewChat = () => {
     const newSession: ChatSession = {
       id: Date.now().toString(),
@@ -36,7 +47,7 @@ function App() {
     setCurrentSessionId(newSession.id);
     setSidebarOpen(false);
     
-    chatInstanceRef.current = createChatSession(selectedModel);
+    initChatInstance(selectedModel, []);
   };
 
   const handleSelectSession = (id: string) => {
@@ -45,7 +56,7 @@ function App() {
     setCurrentSessionId(id);
     const session = sessions.find(s => s.id === id);
     if (session) {
-      chatInstanceRef.current = createChatSession(session.model || selectedModel, session.messages);
+      initChatInstance(session.model || selectedModel, session.messages);
       setSidebarOpen(false); 
     }
   };
@@ -55,7 +66,7 @@ function App() {
     if (currentSessionId) {
       const session = sessions.find(s => s.id === currentSessionId);
       if (session) {
-        chatInstanceRef.current = createChatSession(model, session.messages);
+        initChatInstance(model, session.messages);
       }
     }
   };
@@ -75,7 +86,7 @@ function App() {
         mediaRecorder.onstop = async () => {
             setIsRecording(false);
             setIsLoading(true);
-            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' }); // Typically webm/opus
+            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' }); 
             const reader = new FileReader();
             reader.readAsDataURL(audioBlob);
             reader.onloadend = async () => {
@@ -86,9 +97,13 @@ function App() {
                     if (text) {
                         handleSendMessage(text, []);
                     }
-                } catch (e) {
+                } catch (e: any) {
                     console.error(e);
-                    alert("Failed to transcribe audio.");
+                    if (e.message?.includes("API_KEY_MISSING")) {
+                       alert("API Key is missing. Check settings.");
+                    } else {
+                       alert("Failed to transcribe audio.");
+                    }
                     setIsLoading(false);
                 }
             };
@@ -119,9 +134,11 @@ function App() {
 
   const handleSendMessage = useCallback(async (text: string, attachments: Attachment[]) => {
     if (!currentSessionId) return;
+    
+    // Ensure chat instance exists
     if (!chatInstanceRef.current) {
          const session = sessions.find(s => s.id === currentSessionId);
-         chatInstanceRef.current = createChatSession(selectedModel, session?.messages || []);
+         initChatInstance(selectedModel, session?.messages || []);
     }
 
     const userMsg: ChatMessage = {
@@ -210,6 +227,11 @@ function App() {
 
       } else {
           // Standard Chat Flow
+          // If instance is null here, it means apiKey was missing or init failed
+          if (!chatInstanceRef.current) {
+             throw new Error("API_KEY_MISSING");
+          }
+
           const stream = await sendMessageToGemini(chatInstanceRef.current, text, attachments);
           let fullText = '';
           for await (const chunk of stream) {
@@ -234,8 +256,8 @@ function App() {
       let errorMessage = "Sorry, something went wrong. Please try again.";
       
       if (error.message) {
-        if (error.message.includes('API key') || error.message.includes('API_KEY')) {
-             errorMessage = "⚠️ **Configuration Error**: API Key is missing. Please set `API_KEY` in Vercel.";
+        if (error.message.includes('API_KEY_MISSING') || error.message.includes('API Key is missing')) {
+             errorMessage = "⚠️ **Action Required**: The API Key is missing.\n\nPlease go to your Vercel Dashboard → Settings → Environment Variables and add `API_KEY`.";
         } else if (error.message.includes('429')) {
              errorMessage = "⚠️ **Rate Limit**: Too many requests. Please wait a moment.";
         } else if (error.message.includes('503')) {

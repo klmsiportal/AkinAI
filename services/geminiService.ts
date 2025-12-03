@@ -1,13 +1,18 @@
 import { GoogleGenAI, Chat, GenerateContentResponse, Content, Part, Modality } from "@google/genai";
 import { ChatMessage, Role, Attachment } from "../types";
 
-const apiKey = process.env.API_KEY || '';
-const ai = new GoogleGenAI({ apiKey: apiKey });
+// Helper to get client securely
+const getAiClient = () => {
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) {
+    throw new Error("API_KEY_MISSING");
+  }
+  return new GoogleGenAI({ apiKey });
+};
 
 export const createChatSession = (modelName: string = 'gemini-2.5-flash', historyMessages: ChatMessage[] = []) => {
-  if (!apiKey) {
-    console.warn("API Key is missing. Please set process.env.API_KEY in your environment.");
-  }
+  // We initialize the client just to ensure we can, but we return the chat object constructed from it.
+  const ai = getAiClient();
 
   const validHistory = historyMessages.filter(msg => 
     !msg.isError && (msg.text.trim().length > 0 || (msg.attachments && msg.attachments.length > 0))
@@ -58,7 +63,8 @@ export const sendMessageToGemini = async (
   text: string,
   attachments: Attachment[] = []
 ): Promise<AsyncGenerator<string, void, unknown>> => {
-  if (!apiKey) throw new Error("API Key is missing.");
+  // Client check handled by caller or previous init, but good to be safe if chat is stale
+  if (!process.env.API_KEY) throw new Error("API_KEY_MISSING");
 
   const parts: Part[] = [];
 
@@ -96,7 +102,7 @@ export const sendMessageToGemini = async (
 
 // 1. Image Generation
 export const generateImage = async (prompt: string, aspectRatio: string = "1:1"): Promise<string> => {
-  if (!apiKey) throw new Error("API Key is missing.");
+  const ai = getAiClient();
   
   // Use generateContent for nano banana series as per instructions
   const response = await ai.models.generateContent({
@@ -125,7 +131,7 @@ export const generateImage = async (prompt: string, aspectRatio: string = "1:1")
 
 // 2. TTS
 export const generateSpeech = async (text: string): Promise<string> => {
-  if (!apiKey) throw new Error("API Key is missing.");
+  const ai = getAiClient();
 
   const response = await ai.models.generateContent({
     model: "gemini-2.5-flash-preview-tts",
@@ -147,7 +153,7 @@ export const generateSpeech = async (text: string): Promise<string> => {
 
 // 3. Audio Transcription (for Mic input)
 export const transcribeAudio = async (base64Audio: string, mimeType: string): Promise<string> => {
-    if (!apiKey) throw new Error("API Key is missing.");
+    const ai = getAiClient();
 
     const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash', // Good for transcription

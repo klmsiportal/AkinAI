@@ -88,7 +88,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   return (
     <div className="flex-1 flex flex-col h-full relative bg-gray-950 text-gray-100">
       {/* Top Bar (Mobile) */}
-      <div className="md:hidden sticky top-0 z-10 bg-gray-950/80 backdrop-blur-md border-b border-gray-800 p-3 flex items-center justify-between">
+      <div className="md:hidden sticky top-0 z-10 glass border-b border-gray-800 p-3 flex items-center justify-between">
         <button onClick={onToggleSidebar} className="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-gray-800">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
             <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
@@ -113,7 +113,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
               
               <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-br from-white to-gray-400 mb-3">Hello, I'm AkinAI</h1>
               <p className="text-gray-400 max-w-md text-lg leading-relaxed mb-10">
-                Advanced intelligence for coding, vision, and creativity.
+                Created by Akin S. Sokpah. Advanced intelligence for coding, vision, and creativity.
               </p>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-2xl">
@@ -121,7 +121,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                   <button 
                     key={i}
                     onClick={() => onSend(s.text + " " + s.sub, [])}
-                    className="flex items-center gap-4 p-4 rounded-xl bg-gray-900 border border-gray-800 hover:bg-gray-800 hover:border-gray-700 transition-all text-left group"
+                    className="flex items-center gap-4 p-4 rounded-xl bg-gray-900/50 border border-gray-800 hover:bg-gray-800 hover:border-gray-600 transition-all text-left group backdrop-blur-sm"
                   >
                     <span className="text-2xl group-hover:scale-110 transition-transform">{s.icon}</span>
                     <div className="flex flex-col">
@@ -147,7 +147,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                   <div className="flex-shrink-0 mt-1 hidden md:block">
                     {msg.role === Role.MODEL ? (
                        <div className={`w-8 h-8 rounded-full flex items-center justify-center shadow-lg border border-white/10 ${msg.isError ? 'bg-red-900/50' : 'bg-gradient-to-tr from-primary-600 to-indigo-600'}`}>
-                          <span className="text-xs font-bold text-white">AI</span>
+                          {msg.isError ? (
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5 text-red-200"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" /></svg>
+                          ) : (
+                            <span className="text-xs font-bold text-white">AI</span>
+                          )}
                        </div>
                     ) : (
                       <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center border border-gray-600">
@@ -166,7 +170,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                       ${msg.role === Role.USER 
                         ? 'bg-gray-800 text-white rounded-tr-sm border border-gray-700' 
                         : msg.isError 
-                            ? 'bg-red-950/40 text-red-200 border border-red-900/50' 
+                            ? 'bg-red-950/20 text-red-200 border border-red-900/30 w-full' 
                             : 'text-gray-200'}
                     `}>
                        {/* Attachments Display */}
@@ -235,11 +239,14 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       </div>
 
       {/* Input Area */}
-      <div className="absolute bottom-0 left-0 w-full p-4 bg-gradient-to-t from-gray-950 via-gray-950/95 to-transparent z-20">
-        <div className="max-w-3xl mx-auto">
+      <div className="absolute bottom-0 left-0 w-full p-4 z-20">
+         {/* Gradient Fade */}
+        <div className="absolute bottom-0 left-0 w-full h-32 bg-gradient-to-t from-gray-950 via-gray-950/90 to-transparent pointer-events-none"></div>
+        
+        <div className="max-w-3xl mx-auto relative">
           {/* Preview */}
           {attachments.length > 0 && (
-            <div className="flex gap-3 mb-3 overflow-x-auto py-2">
+            <div className="flex gap-3 mb-3 overflow-x-auto py-2 px-1">
               {attachments.map((att, idx) => (
                 <div key={idx} className="relative group shrink-0">
                   <img src={`data:${att.mimeType};base64,${att.data}`} className="h-16 w-16 object-cover rounded-lg border border-gray-700 shadow-md" alt="preview" />
@@ -256,11 +263,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
             </div>
           )}
 
-          <div className="bg-gray-800/60 backdrop-blur-xl border border-gray-700 rounded-2xl p-2 shadow-2xl ring-1 ring-white/5 relative flex items-end gap-2 transition-all duration-300 focus-within:bg-gray-800 focus-within:border-gray-500">
+          <div className="glass border border-gray-700/50 rounded-2xl p-2 shadow-2xl ring-1 ring-white/5 relative flex items-end gap-2 transition-all duration-300 focus-within:bg-gray-900/90 focus-within:border-gray-600">
             {/* Attachment Button */}
             <button 
               onClick={() => fileInputRef.current?.click()}
-              className="p-3 text-gray-400 hover:text-white hover:bg-gray-700/50 rounded-xl transition-all h-[48px] w-[48px] flex items-center justify-center shrink-0"
+              className="p-3 text-gray-400 hover:text-white hover:bg-white/5 rounded-xl transition-all h-[48px] w-[48px] flex items-center justify-center shrink-0"
               title="Add Image"
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
@@ -278,7 +285,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
             {/* Mic Button */}
             <button
                 onClick={onRecordAudio}
-                className={`p-3 rounded-xl transition-all h-[48px] w-[48px] flex items-center justify-center shrink-0 ${isRecording ? 'bg-red-600 text-white animate-pulse' : 'text-gray-400 hover:text-white hover:bg-gray-700/50'}`}
+                className={`p-3 rounded-xl transition-all h-[48px] w-[48px] flex items-center justify-center shrink-0 ${isRecording ? 'bg-red-500/80 text-white animate-pulse shadow-[0_0_15px_rgba(239,68,68,0.5)]' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
                 title="Voice Input"
             >
                 {isRecording ? (
@@ -299,7 +306,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={isRecording ? "Listening..." : "Ask anything... (Type 'draw a cat' to generate images)"}
+              placeholder={isRecording ? "Listening..." : "Ask anything... (Type 'draw' for images)"}
               className="flex-1 bg-transparent text-white placeholder-gray-500 text-base py-3 px-1 focus:outline-none resize-none max-h-[150px] min-h-[48px]"
               rows={1}
             />
@@ -310,8 +317,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
               className={`
                 p-2 m-1 rounded-xl transition-all duration-200 h-[40px] w-[40px] flex items-center justify-center shrink-0
                 ${(inputText.trim() || attachments.length > 0) && !isLoading
-                  ? 'bg-primary-600 text-white hover:bg-primary-500 shadow-lg shadow-primary-500/25' 
-                  : 'bg-gray-700/50 text-gray-500 cursor-not-allowed'}
+                  ? 'bg-gradient-to-tr from-primary-600 to-indigo-600 text-white hover:shadow-lg hover:shadow-primary-500/25' 
+                  : 'bg-gray-700/30 text-gray-600 cursor-not-allowed'}
               `}
             >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
@@ -319,8 +326,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
               </svg>
             </button>
           </div>
-          <p className="text-center text-[10px] text-gray-600 mt-2 font-medium">
-             AkinAI (Pro) • Powered by Gemini 3.
+          <p className="text-center text-[10px] text-gray-500 mt-3 font-medium opacity-60">
+             AkinAI (Pro) • Powered by Gemini 3
           </p>
         </div>
       </div>

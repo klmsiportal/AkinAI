@@ -3,7 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="https://picsum.photos/32/32" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#0f0f13" />
     <title>AkinAI - Next Gen Chat</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -48,6 +49,7 @@
         background-color: #0f0f13;
         color: #e2e8f0;
         overflow: hidden; /* Prevent body scroll */
+        -webkit-tap-highlight-color: transparent;
       }
       /* Custom scrollbar for Webkit */
       ::-webkit-scrollbar {
@@ -63,6 +65,11 @@
       }
       ::-webkit-scrollbar-thumb:hover {
         background: #4b5563;
+      }
+      .glass {
+        background: rgba(15, 15, 19, 0.7);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
       }
     </style>
   <script type="importmap">
