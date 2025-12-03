@@ -1,0 +1,7 @@
+{
+  "name": "AkinAI - Advanced Assistant",
+  "description": "A next-generation AI chat interface powered by Gemini 2.5 Flash. Created by Akin S. Sokpah from Liberia.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
